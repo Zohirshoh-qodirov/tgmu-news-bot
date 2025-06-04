@@ -1,42 +1,22 @@
-import requests
-from bs4 import BeautifulSoup
-import telegram
-import time
+from aiogram import Bot, Dispatcher, executor, types
+from dotenv import load_dotenv
+import os
 
-BOT_TOKEN = 'BOT_TOKEN'
-CHANNEL_NAME = '@TGMUNEWS'
-bot = telegram.Bot(token=BOT_TOKEN)
+# Загружаем переменные окружения из файла .env
+load_dotenv()
 
-sent_links = set()
+# Получаем токен из переменной окружения
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-def get_news():
-    url = "https://tajmedun.tj/ru/novosti/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    articles = soup.select(".blog-item")
+# Инициализируем бота и диспетчера
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot)
 
-    news = []
-    for article in articles:
-        title = article.select_one(".blog-title").get_text(strip=True)
-        link = "https://tajmedun.tj" + article.select_one("a")["href"]
-        image = "https://tajmedun.tj" + article.select_one("img")["src"]
-        date = article.select_one(".blog-date").get_text(strip=True)
-
-        if link not in sent_links:
-            sent_links.add(link)
-            news.append((title, link, image, date))
-    return news
-
-def send_news():
-    for title, link, image, date in get_news():
-        message = f"<b>{title}</b>\n🗓 {date}\n<a href='{image}'>⠀</a>\n<a href='{link}'>Читать подробнее</a>"
-        bot.send_message(chat_id=CHANNEL_NAME, text=message, parse_mode=telegram.ParseMode.HTML)
+# Обработчик команды /start
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
+    await message.reply("Привет! Я бот, который публикует новости!")
 
 if __name__ == '__main__':
-    while True:
-        try:
-            send_news()
-            time.sleep(60)  # каждые 10 минут
-        except Exception as e:
-            print("Ошибка:", e)
-            time.sleep(30)
+    # Запускаем бота
+    executor.start_polling(dp, skip_updates=True)
