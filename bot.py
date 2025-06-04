@@ -1,93 +1,87 @@
 import os
 import asyncio
 import aiohttp
+from bs4 import BeautifulSoup
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 load_dotenv()
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN, parse_mode='HTML')
 dp = Dispatcher(bot)
 
-# Хранилище уже опубликованных новостей
-posted_links = set()
+URL = "https://tajmedun.tj/ru/novosti/"
+SEEN_FILE = "seen_news.txt"
+
+
+def load_seen_links():
+    if not os.path.exists(SEEN_FILE):
+        return set()
+    with open(SEEN_FILE, "r") as f:
+        return set(line.strip() for line in f.readlines())
+
+
+def save_seen_link(link):
+    with open(SEEN_FILE, "a") as f:
+        f.write(link + "\n")
+
 
 async def fetch_news():
-    url = 'https://tajmedun.tj/ru/novosti/'
+    seen_links = load_seen_links()
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            page_content = await response.text()
-            soup = BeautifulSoup(page_content, 'html.parser')
-            news_items = soup.find_all('div', class_='news-item')  # Замените на актуальный класс
+        async with session.get(URL) as response:
+            html = await response.text()
 
-            new_posts = []
+    soup = BeautifulSoup(html, "html.parser")
+    news_items = soup.select(".news-item")  # селектор может отличаться
 
-            for item in news_items:
-                title_tag = item.find('h3')
-                link_tag = item.find('a')
-                img_tag = item.find('img')
-                desc_tag = item.find('p')
+    for item in news_items:
+        title_tag = item.select_one(".news-title")
+        if not title_tag:
+            continue
 
-                if not (title_tag and link_tag):
-                    continue
+        title = title_tag.get_text(strip=True)
+        link = "https://tajmedun.tj" + title_tag.get("href")
+        if link in seen_links:
+            continue
 
-                title = title_tag.get_text(strip=True)
-                link = link_tag['href']
-                if not link.startswith('http'):
-                    link = 'https://tajmedun.tj' + link
+        description_tag = item.select_one(".news-text")
+        description = description_tag.get_text(strip=True) if description_tag else ""
 
-                if link in posted_links:
-                    continue  # Уже опубликовано
+        img_tag = item.select_one("img")
+        image_url = "https://tajmedun.tj" + img_tag.get("src") if img_tag else None
 
-                image_url = ''
-                if img_tag and img_tag.get('src'):
-                    image_url = img_tag['src']
-                    if not image_url.startswith('http'):
-                        image_url = 'https://tajmedun.tj' + image_url
+        message = f"<b>{title}</b>\n\n{description}\n\n📎 <a href='{link}'>Источник</a>"
 
-                description = desc_tag.get_text(strip=True) if desc_tag else ''
-
-                new_posts.append({
-                    'title': title,
-                    'link': link,
-                    'image_url': image_url,
-                    'description': description
-                })
-
-                posted_links.add(link)
-
-            return new_posts
-
-async def post_news():
-    news = await fetch_news()
-    for item in news:
-        message = f"<b>{item['title']}</b>\n\n{item['description']}\n\n<a href='{item['link']}'>Читать полностью</a>"
         try:
-            if item['image_url']:
-                await bot.send_photo(CHANNEL_ID, photo=item['image_url'], caption=message, parse_mode='HTML')
+            if image_url:
+                await bot.send_photo(CHANNEL_ID, photo=image_url, caption=message)
             else:
-                await bot.send_message(CHANNEL_ID, message, parse_mode='HTML')
+                await bot.send_message(CHANNEL_ID, message)
         except Exception as e:
-            print(f"Ошибка при отправке сообщения: {e}")
+            print(f"Ошибка при отправке: {e}")
 
-@dp.message_handler(commands=['start'])
-async def start_command(message: types.Message):
-    await message.reply("Привет! Я бот, который публикует новости с сайта ТГМУ в канал.")
+        save_seen_link(link)
 
-@dp.message_handler(commands=['post'])
-async def manual_post(message: types.Message):
-    await message.reply("Начинаю публикацию новых новостей...")
-    await post_news()
-    await message.reply("Публикация завершена!")
 
 async def scheduler():
     while True:
-        await post_news()
-        await asyncio.sleep(3600)  # Проверять каждые 60 минут
+        try:
+            await fetch_news()
+        except Exception as e:
+            print(f"Ошибка в fetch_news: {e}")
+        await asyncio.sleep(60)  # проверять каждый час
+
+
+@dp.message_handler(commands=['start'])
+async def start_handler(message: types.Message):
+    await message.reply("✅ Бот работает и отслеживает новости Tajmedun.")
+
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
