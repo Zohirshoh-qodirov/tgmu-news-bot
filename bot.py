@@ -3,9 +3,9 @@ from bs4 import BeautifulSoup
 import telegram
 import time
 
-BOT_TOKEN = '7596080262:AAFBMGanNhrYqnIFa2HR5K7hQSmfGPjPUVQ'
+BOT_TOKEN = 'BOT_TOKEN'
 CHANNEL_NAME = '@TGMUNEWS'
-bot = telegram.Bot(token=7596080262:AAFBMGanNhrYqnIFa2HR5K7hQSmfGPjPUVQ)
+bot = telegram.Bot(token=BOT_TOKEN)
 
 sent_links = set()
 
