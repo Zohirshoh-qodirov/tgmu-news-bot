@@ -3,9 +3,9 @@ from bs4 import BeautifulSoup
 import telegram
 import time
 
-BOT_TOKEN = 'ВАШ_ТОКЕН'
+BOT_TOKEN = '7596080262:AAFBMGanNhrYqnIFa2HR5K7hQSmfGPjPUVQ'
 CHANNEL_NAME = '@TGMUNEWS'
-bot = telegram.Bot(token=BOT_TOKEN)
+bot = telegram.Bot(token=7596080262:AAFBMGanNhrYqnIFa2HR5K7hQSmfGPjPUVQ)
 
 sent_links = set()
 
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     while True:
         try:
             send_news()
-            time.sleep(600)  # каждые 10 минут
+            time.sleep(60)  # каждые 10 минут
         except Exception as e:
             print("Ошибка:", e)
             time.sleep(30)
