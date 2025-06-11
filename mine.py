@@ -1,6 +1,6 @@
 import asyncio
 from bot import run_bot
-from web import app
+from wed import app
 from threading import Thread
 
 def start_web():
